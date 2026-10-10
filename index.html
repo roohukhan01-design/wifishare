@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wi-Fi Share</title>
+<style>
+  :root {
+    --paper: #F1F3EF;
+    --card: #FFFFFF;
+    --ink: #16252B;
+    --muted: #5C6B70;
+    --line: #D3DAD5;
+    --cobalt: #2447F5;
+    --on-cobalt: #FFFFFF;
+    --mint: #DCEBE3;
+    --danger: #B3261E;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #111A1E;
+      --card: #182328;
+      --ink: #E8EEEA;
+      --muted: #93A3A8;
+      --line: #2B3A40;
+      --cobalt: #7C93FF;
+      --on-cobalt: #0E1522;
+      --mint: #1D3329;
+      --danger: #FF8A80;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font: 16px/1.5 var(--sans);
+    min-height: 100vh;
+  }
+  h1, h2 { font-family: var(--serif); font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  h1 { font-size: 2rem; line-height: 1.15; }
+  h2 { font-size: 1.35rem; }
+  p { margin: 0; }
+  button, input { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--cobalt); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 44px; padding: 0 18px;
+    border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); cursor: pointer; text-decoration: none; color: var(--ink);
+  }
+  .btn:hover { border-color: var(--cobalt); }
+  .btn.primary { background: var(--cobalt); border-color: var(--cobalt); color: var(--on-cobalt); font-weight: 600; }
+  .btn.quiet { border-color: transparent; background: transparent; color: var(--muted); min-height: 36px; padding: 0 10px; }
+  .btn.quiet:hover { color: var(--ink); }
+
+  /* ---------- code gate ---------- */
+  #gate {
+    min-height: 100vh; display: grid; place-items: center; padding: 24px;
+  }
+  .gate-inner { width: min(460px, 100%); }
+  .gate-inner h1 { margin-bottom: 10px; }
+  .gate-inner .lede { color: var(--muted); margin-bottom: 28px; max-width: 38ch; }
+  .code-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .code-row input {
+    width: 100%; aspect-ratio: 4 / 5; text-align: center;
+    font: 600 1.9rem/1 var(--serif); font-variant-numeric: tabular-nums;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0;
+  }
+  .code-row input:focus { border-color: var(--cobalt); outline-offset: 0; }
+  .code-row.bad input { border-color: var(--danger); }
+  #gate-msg { min-height: 3em; margin-top: 16px; color: var(--muted); }
+  #gate-msg.error { color: var(--danger); }
+
+  /* ---------- main ---------- */
+  #app { max-width: 1080px; margin: 0 auto; padding: 28px 20px 48px; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; }
+  .status { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #2E9E6B; flex: none; }
+  .status.lost .dot { background: var(--danger); }
+  .banner {
+    background: var(--card); border: 1px solid var(--danger); color: var(--danger);
+    border-radius: 12px; padding: 12px 16px; margin-bottom: 20px;
+  }
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+  @media (max-width: 820px) { .columns { grid-template-columns: 1fr; } }
+  .panel-head { margin-bottom: 14px; }
+  .panel-head p { color: var(--muted); margin-top: 2px; }
+
+  .drop {
+    display: block; width: 100%; text-align: center; cursor: pointer;
+    border: 2px dashed var(--line); border-radius: 16px; background: var(--card);
+    padding: 44px 20px; transition: border-color .15s, background-color .15s;
+  }
+  .drop:hover, .drop.over { border-color: var(--cobalt); background: var(--mint); }
+  .drop strong { display: block; font: 700 1.2rem var(--serif); margin-bottom: 4px; }
+  .drop span { color: var(--muted); }
+  .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .drop:focus-within { outline: 3px solid var(--cobalt); outline-offset: 2px; }
+
+  ul.rows { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+  .row {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center;
+  }
+  .row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .row .meta { color: var(--muted); font-size: .875rem; }
+  .row .meta.error { color: var(--danger); }
+  .row.done .meta { color: #2E7D5B; }
+  @media (prefers-color-scheme: dark) { .row.done .meta { color: #6FD3A4; } }
+  .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--mint); overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--cobalt); transition: width .2s linear; }
+  .row.done .bar, .row.failed .bar { display: none; }
+  .empty { color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; padding: 24px 18px; }
+
+  .note { color: var(--muted); font-size: .875rem; margin-top: 36px; max-width: 70ch; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .drop, .bar > i { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<main id="gate" hidden>
+  <div class="gate-inner">
+    <h1>Enter the code from your phone</h1>
+    <p class="lede">Open Wi-Fi Share on your phone and tap Start sharing. The six-digit code is under the link.</p>
+    <div class="code-row" id="code-row" role="group" aria-label="Six-digit code">
+      <input inputmode="numeric" autocomplete="one-time-code" maxlength="1" aria-label="Digit 1">
+      <input inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Digit 2">
+      <input inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Digit 3">
+      <input inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Digit 4">
+      <input inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Digit 5">
+      <input inputmode="numeric" autocomplete="off" maxlength="1" aria-label="Digit 6">
+    </div>
+    <p id="gate-msg" role="status" aria-live="polite"></p>
+  </div>
+</main>
+
+<div id="app" hidden>
+  <div class="topbar">
+    <h1>Wi-Fi Share</h1>
+    <div class="status" id="status" aria-live="polite">
+      <span class="dot"></span><span id="status-text">Connected to your phone</span>
+      <button class="btn quiet" id="forget" type="button">Use a different code</button>
+    </div>
+  </div>
+
+  <div class="banner" id="lost" hidden role="alert">
+    Lost the connection to your phone. Check that Wi-Fi Share is still running and both devices are on the same Wi-Fi.
+  </div>
+
+  <div class="columns">
+    <section aria-labelledby="send-h">
+      <div class="panel-head">
+        <h2 id="send-h">Send to your phone</h2>
+        <p>Files are saved in Downloads/WiFiShare on the phone.</p>
+      </div>
+      <label class="drop" id="drop">
+        <input type="file" id="picker" multiple>
+        <strong>Drop files here</strong>
+        <span>or click to choose files</span>
+      </label>
+      <ul class="rows" id="queue"></ul>
+    </section>
+
+    <section aria-labelledby="get-h">
+      <div class="panel-head">
+        <h2 id="get-h">On your phone</h2>
+        <p>Files you added in the app appear here.</p>
+      </div>
+      <ul class="rows" id="shared"></ul>
+      <p class="empty" id="shared-empty">Nothing shared yet. In the app, tap Add files.</p>
+    </section>
+  </div>
+
+  <p class="note">This page and the transfers use plain HTTP on your local network. Only people on the same Wi-Fi who know the code can connect. Stop sharing on the phone when you're done.</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (s) { return document.querySelector(s); };
+  var key = '';
+  try { key = sessionStorage.getItem('wifishare-key') || ''; } catch (e) {}
+  var pollTimer = null;
+  var misses = 0;
+
+  // ---------- helpers ----------
+  function fmtSize(b) {
+    if (b < 0) return '';
+    if (b < 1024) return b + ' B';
+    var u = ['KB', 'MB', 'GB', 'TB'], v = b, i = -1;
+    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+    return (v >= 100 ? v.toFixed(0) : v.toFixed(1)) + ' ' + u[i];
+  }
+  function api(path, opts) {
+    var sep = path.indexOf('?') >= 0 ? '&' : '?';
+    return fetch(path + sep + 'key=' + encodeURIComponent(key), opts);
+  }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  // ---------- code gate ----------
+  var inputs = Array.prototype.slice.call(document.querySelectorAll('#code-row input'));
+  var row = $('#code-row');
+  var gateMsg = $('#gate-msg');
+
+  function gateText(msg, isError) {
+    gateMsg.textContent = msg || '';
+    gateMsg.className = isError ? 'error' : '';
+    row.classList.toggle('bad', !!isError);
+  }
+  function clearInputs() {
+    inputs.forEach(function (i) { i.value = ''; });
+    inputs[0].focus();
+  }
+  function currentCode() { return inputs.map(function (i) { return i.value; }).join(''); }
+
+  inputs.forEach(function (inp, idx) {
+    inp.addEventListener('input', function () {
+      var digits = inp.value.replace(/\D/g, '');
+      inp.value = digits.slice(-1);
+      gateText('');
+      if (inp.value && idx < inputs.length - 1) inputs[idx + 1].focus();
+      if (currentCode().length === 6) tryConnect(currentCode());
+    });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Backspace' && !inp.value && idx > 0) { inputs[idx - 1].focus(); inputs[idx - 1].value = ''; }
+      if (e.key === 'ArrowLeft' && idx > 0) inputs[idx - 1].focus();
+      if (e.key === 'ArrowRight' && idx < inputs.length - 1) inputs[idx + 1].focus();
+    });
+    inp.addEventListener('paste', function (e) {
+      var t = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+      if (!t) return;
+      e.preventDefault();
+      for (var i = 0; i < inputs.length; i++) inputs[i].value = t[i] || '';
+      inputs[Math.min(t.length, 5)].focus();
+      if (t.length === 6) tryConnect(t);
+    });
+    inp.addEventListener('focus', function () { inp.select(); });
+  });
+
+  function showGate(msg, isError) {
+    stopPolling();
+    $('#app').hidden = true;
+    $('#gate').hidden = false;
+    gateText(msg, isError);
+    clearInputs();
+  }
+
+  function tryConnect(code) {
+    key = code;
+    gateText('Checking the code...');
+    api('/api/ping').then(function (r) {
+      if (r.status === 200) {
+        try { sessionStorage.setItem('wifishare-key', key); } catch (e) {}
+        showApp();
+      } else if (r.status === 429) {
+        gateText('Too many wrong codes. Wait a minute, then try again.', true);
+        clearInputs();
+      } else {
+        gateText("That code doesn't match. Check your phone and try again.", true);
+        clearInputs();
+      }
+    }).catch(function () {
+      gateText("Can't reach your phone. Check that Wi-Fi Share is running and both devices are on the same Wi-Fi.", true);
+    });
+  }
+
+  $('#forget').addEventListener('click', function () {
+    try { sessionStorage.removeItem('wifishare-key'); } catch (e) {}
+    key = '';
+    showGate('', false);
+  });
+
+  // ---------- main view ----------
+  function showApp() {
+    $('#gate').hidden = true;
+    $('#app').hidden = false;
+    misses = 0;
+    refreshFiles();
+    stopPolling();
+    pollTimer = setInterval(refreshFiles, 2500);
+  }
+  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+  function setLost(lost) {
+    $('#lost').hidden = !lost;
+    $('#status').classList.toggle('lost', lost);
+    $('#status-text').textContent = lost ? 'Not connected' : 'Connected to your phone';
+  }
+
+  var lastSig = null;
+  function refreshFiles() {
+    api('/api/files').then(function (r) {
+      if (r.status === 401) { showGate('The code changed. Enter the new one from your phone.', true); return null; }
+      if (r.status === 429) { showGate('Too many wrong codes. Wait a minute, then try again.', true); return null; }
+      return r.json();
+    }).then(function (data) {
+      if (!data) return;
+      misses = 0;
+      setLost(false);
+      var sig = JSON.stringify(data.shared);
+      if (sig === lastSig) return;
+      lastSig = sig;
+      renderShared(data.shared);
+    }).catch(function () {
+      misses++;
+      if (misses >= 2) setLost(true);
+    });
+  }
+
+  function renderShared(list) {
+    var ul = $('#shared');
+    ul.textContent = '';
+    $('#shared-empty').hidden = list.length > 0;
+    list.forEach(function (f) {
+      var li = el('li', 'row');
+      var name = el('div', 'name', f.name);
+      name.title = f.name;
+      var a = el('a', 'btn primary', 'Download');
+      a.href = '/d/' + encodeURIComponent(f.id) + '?key=' + encodeURIComponent(key);
+      a.setAttribute('download', f.name);
+      a.setAttribute('aria-label', 'Download ' + f.name);
+      var meta = el('div', 'meta', fmtSize(f.size));
+      li.appendChild(name);
+      li.appendChild(a);
+      li.appendChild(meta);
+      ul.appendChild(li);
+    });
+  }
+
+  // ---------- uploads ----------
+  var queue = [];
+  var busy = false;
+
+  function addFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList);
+    files.forEach(function (file) {
+      var li = el('li', 'row');
+      var name = el('div', 'name', file.name);
+      name.title = file.name;
+      var size = el('div', 'meta', fmtSize(file.size));
+      var meta = el('div', 'meta', 'Waiting');
+      var bar = el('div', 'bar');
+      var fill = el('i');
+      bar.appendChild(fill);
+      li.appendChild(name);
+      li.appendChild(size);
+      li.appendChild(meta);
+      li.appendChild(bar);
+      $('#queue').insertBefore(li, $('#queue').firstChild);
+      queue.push({ file: file, li: li, meta: meta, fill: fill });
+    });
+    next();
+  }
+
+  function next() {
+    if (busy || !queue.length) return;
+    busy = true;
+    send(queue.shift(), function () { busy = false; next(); });
+  }
+
+  function send(job, done) {
+    var file = job.file;
+    var xhr = new XMLHttpRequest();
+    var started = Date.now();
+    xhr.open('POST', '/api/upload?key=' + encodeURIComponent(key) + '&name=' + encodeURIComponent(file.name));
+    xhr.upload.onprogress = function (e) {
+      if (!e.lengthComputable) return;
+      var pct = e.total ? (e.loaded / e.total) * 100 : 100;
+      job.fill.style.width = pct.toFixed(1) + '%';
+      var secs = Math.max((Date.now() - started) / 1000, 0.1);
+      job.meta.textContent = fmtSize(e.loaded) + ' of ' + fmtSize(e.total) + ' at ' + fmtSize(e.loaded / secs) + '/s';
+    };
+    xhr.onload = function () {
+      if (xhr.status === 200) {
+        job.li.classList.add('done');
+        var saved = file.name;
+        try { saved = JSON.parse(xhr.responseText).name || saved; } catch (e) {}
+        job.meta.textContent = saved === file.name ? 'Saved on your phone' : 'Saved on your phone as ' + saved;
+      } else {
+        job.li.classList.add('failed');
+        job.meta.classList.add('error');
+        var msg = 'Upload failed.';
+        if (xhr.status === 401) msg = 'The code changed. Enter the new code and try again.';
+        else if (xhr.status === 429) msg = 'Too many wrong codes. Wait a minute.';
+        else { try { msg = JSON.parse(xhr.responseText).error || msg; } catch (e) {} }
+        job.meta.textContent = msg;
+      }
+      done();
+    };
+    xhr.onerror = function () {
+      job.li.classList.add('failed');
+      job.meta.classList.add('error');
+      job.meta.textContent = 'Lost the connection to your phone. Try this file again.';
+      done();
+    };
+    xhr.send(file);
+  }
+
+  var drop = $('#drop');
+  var picker = $('#picker');
+  picker.addEventListener('change', function () { addFiles(picker.files); picker.value = ''; });
+  ['dragenter', 'dragover'].forEach(function (t) {
+    drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (t) {
+    drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (e) {
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) addFiles(files);
+  });
+  // Dropping a file outside the box should not make the browser open it.
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('drop', function (e) { e.preventDefault(); });
+
+  // ---------- start ----------
+  if (key) {
+    api('/api/ping').then(function (r) {
+      if (r.status === 200) showApp(); else showGate('', false);
+    }).catch(function () { showGate('', false); });
+  } else {
+    showGate('', false);
+  }
+})();
+</script>
+</body>
+</html>
