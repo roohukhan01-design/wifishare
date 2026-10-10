@@ -1,0 +1,47 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Put files in the right folders
+        run: |
+          J=app/src/main/java/com/wifishare/app
+          mkdir -p $J app/src/main/assets app/src/main/res/drawable app/src/main/res/values app/src/main/res/mipmap-anydpi-v26
+          put() { if [ -f "$1" ]; then mv "$1" "$2/"; fi; }
+          put AndroidManifest.xml app/src/main
+          put index.html app/src/main/assets
+          put MainActivity.java $J
+          put ShareServer.java $J
+          put ShareService.java $J
+          put AndroidStorage.java $J
+          put Storage.java $J
+          put ic_fg.xml app/src/main/res/drawable
+          put ic_stat.xml app/src/main/res/drawable
+          put ic_launcher.xml app/src/main/res/mipmap-anydpi-v26
+          put colors.xml app/src/main/res/values
+          find . -path ./.git -prune -o -type f -print | sort
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WiFiShare-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
